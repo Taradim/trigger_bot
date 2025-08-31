@@ -235,32 +235,24 @@ def calculate_performance_metrics(monthly_data):
                 else None
             )
 
-            if price_12m and price_6m and price_3m and price_current:
+            # Vérifier que tous les prix sont valides (pas None, pas NaT, et > 0)
+            if (
+                pd.notna(price_12m)
+                and pd.notna(price_6m)
+                and pd.notna(price_3m)
+                and pd.notna(price_current)
+                and price_12m > 0
+                and price_6m > 0
+                and price_3m > 0
+                and price_current > 0
+            ):
                 # Calculer les performances
-                perf_12m = (
-                    ((price_current - price_12m) / price_12m * 100)
-                    if price_12m is not None and price_12m > 0
-                    else None
-                )
-                perf_6m = (
-                    ((price_current - price_6m) / price_6m * 100)
-                    if price_6m is not None and price_6m > 0
-                    else None
-                )
-                perf_3m = (
-                    ((price_current - price_3m) / price_3m * 100)
-                    if price_3m is not None and price_3m > 0
-                    else None
-                )
+                perf_12m = (price_current - price_12m) / price_12m * 100
+                perf_6m = (price_current - price_6m) / price_6m * 100
+                perf_3m = (price_current - price_3m) / price_3m * 100
 
-                # Calculer le score total en gérant les valeurs None
-                score_total = 0
-                if perf_12m is not None:
-                    score_total += perf_12m
-                if perf_6m is not None:
-                    score_total += perf_6m
-                if perf_3m is not None:
-                    score_total += perf_3m
+                # Calculer le score total
+                score_total = perf_12m + perf_6m + perf_3m
 
                 ticker_performances.append(
                     {
