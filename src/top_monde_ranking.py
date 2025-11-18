@@ -58,9 +58,9 @@ def top_monde_ranking():
 
             # 1. perf_sum : somme des performances 1 an + 6 mois + 3 mois
             perf_columns = [
-                "Performance % 1 année",
-                "Performance % 6 mois",
-                "Performance % 3 mois",
+                "Performance % 1 year",
+                "Performance % 6 months",
+                "Performance % 3 months",
             ]
             df["perf_sum"] = df[perf_columns].sum(axis=1)
             print("✅ Colonne 'perf_sum' créée")
@@ -71,13 +71,13 @@ def top_monde_ranking():
 
             # 2. MRAT : moyenne mobile 21 / moyenne mobile 200
             df["MRAT"] = (
-                df["Moyenne mobile simple (21) 1 jour"]
-                / df["Moyenne mobile simple (200) 1 jour"]
+                df["Simple Moving Average (21) 1 day"]
+                / df["Simple Moving Average (200) 1 day"]
             )
             print("✅ Colonne 'MRAT' créée")
 
             # 3. Diff : prix / moyenne mobile 200
-            df["Diff"] = df["Prix"] / df["Moyenne mobile simple (200) 1 jour"]
+            df["Diff"] = df["Price"] / df["Simple Moving Average (200) 1 day"]
             print("✅ Colonne 'Diff' créée")
 
             # 4. score : somme de perf_norm et MRAT

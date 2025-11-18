@@ -3,20 +3,25 @@
 Script ticker_list.py pour créer une liste de tickers à importer dans TradingView
 """
 
-import pandas as pd
-import os
 import glob
+import os
 from datetime import datetime
+
+import pandas as pd
 
 
 def get_latest_top_monde_file():
     """Récupère le fichier TOP MONDE avec la date la plus récente dans ticker_room"""
 
     ticker_room_path = os.path.join("data", "ticker_room")
-    top_monde_files = glob.glob(os.path.join(ticker_room_path, "TOP MONDE*.csv"))
+    top_monde_files = glob.glob(
+        os.path.join(ticker_room_path, "TOP MONDE*_enhanced.csv")
+    )
 
     if not top_monde_files:
         raise FileNotFoundError("Aucun fichier TOP MONDE trouvé dans data/ticker_room/")
+
+    print(f"🔍 Fichiers trouvés : {top_monde_files}")
 
     # Trouver le fichier avec la date la plus récente
     latest_file = None
@@ -28,15 +33,22 @@ def get_latest_top_monde_file():
         try:
             # Gérer les différents formats de nom de fichier
             if "TOP MONDE_" in filename:
-                date_str = filename.replace("TOP MONDE_", "").replace(".csv", "")
+                date_str = (
+                    filename.replace("TOP MONDE_", "")
+                    .replace("_enhanced.csv", "")
+                    .replace(".csv", "")
+                )
                 # Nettoyer la date (enlever les caractères supplémentaires)
                 date_str = date_str.split(" ")[0]  # Prendre la première partie
+                print(f"🔍 Tentative de parsing de la date : '{date_str}'")
                 file_date = datetime.strptime(date_str, "%Y-%m-%d")
+                print(f"✅ Date parsée : {file_date}")
 
                 if latest_date is None or file_date > latest_date:
                     latest_date = file_date
                     latest_file = file_path
-        except ValueError:
+        except ValueError as e:
+            print(f"❌ Erreur de parsing de la date '{date_str}': {e}")
             continue
 
     if latest_file is None:
@@ -60,19 +72,19 @@ def create_ticker_lists():
         print(f"📊 Données chargées : {df.shape[0]} lignes × {df.shape[1]} colonnes")
 
         # Vérifier que les colonnes nécessaires existent
-        required_columns = ["Symbole", "Marché", "Capitalisation boursière", "score"]
+        required_columns = ["Symbol", "Exchange", "Market capitalization", "score"]
         missing_columns = [col for col in required_columns if col not in df.columns]
 
         if missing_columns:
             raise ValueError(f"Colonnes manquantes : {missing_columns}")
 
         # Convertir la capitalisation en numérique et nettoyer
-        df["Capitalisation boursière"] = pd.to_numeric(
-            df["Capitalisation boursière"], errors="coerce"
+        df["Market capitalization"] = pd.to_numeric(
+            df["Market capitalization"], errors="coerce"
         )
 
         # Filtrer les sociétés de plus de 10 milliards (10,000,000,000)
-        df_filtered = df[df["Capitalisation boursière"] >= 10000000000].copy()
+        df_filtered = df[df["Market capitalization"] >= 10000000000].copy()
         print(f"🏢 Sociétés de plus de 10 milliards : {len(df_filtered)}")
 
         # Trier par score décroissant
@@ -89,8 +101,8 @@ def create_ticker_lists():
         def format_ticker_list(dataframe, title):
             ticker_list = []
             for _, row in dataframe.iterrows():
-                market = row["Marché"]
-                symbol = row["Symbole"]
+                market = row["Exchange"]
+                symbol = row["Symbol"]
                 ticker_list.append(f"{market}:{symbol}")
             return ticker_list
 
@@ -127,6 +139,18 @@ def create_ticker_lists():
         # Générer la liste des tickers score >= 2.7
         score_27_list = format_ticker_list(df_score_filtered, "Score >= 2.7")
 
+        # Créer la liste des 100 "worst performers" (scores les plus bas > 0)
+        df_worst_performers = df[df["score"] > 0].copy()
+        df_worst_performers = df_worst_performers.sort_values(
+            by="score", ascending=True
+        )
+        worst_100 = df_worst_performers.head(100)
+
+        # Générer la liste des 100 worst performers
+        worst_100_list = format_ticker_list(
+            worst_100, "Worst 100 performers (score > 0)"
+        )
+
         # Sauvegarder les listes
 
         output_dir = "data"
@@ -148,9 +172,17 @@ def create_ticker_lists():
             for ticker in score_27_list:
                 f.write(f"{ticker}\n")
 
+        # 3. Liste des 100 worst performers
+        worst_100_filename = f"top_monde_worst_100_{today_date}.txt"
+        worst_100_path = os.path.join(output_dir, worst_100_filename)
+        with open(worst_100_path, "w", encoding="utf-8") as f:
+            for ticker in worst_100_list:
+                f.write(f"{ticker}\n")
+
         print(f"\n✅ Listes de tickers générées avec succès !")
         print(f"📄 Liste unifiée : {unified_path}")
         print(f"📄 Score >= 2.7 : {score_27_path}")
+        print(f"📄 Worst 100 performers : {worst_100_path}")
 
         # Afficher un résumé
         print(f"\n📊 Résumé des listes générées :")
@@ -166,6 +198,7 @@ def create_ticker_lists():
             f"Total unique (liste unifiée) : {len(unified_ticker_list) - 2} tickers"
         )  # -2 pour les lignes de section
         print(f"Score >= 2.7 : {len(score_27_list)} tickers")
+        print(f"Worst 100 performers (score > 0) : {len(worst_100_list)} tickers")
 
         # Afficher les premiers tickers de chaque section
         print(f"\n🏆 Top 5 de la section 'Top 30 Big' :")
@@ -174,6 +207,10 @@ def create_ticker_lists():
 
         print(f"\n🌍 Top 5 de la section 'Top 50 Global' (sans doublons) :")
         for i, ticker in enumerate(unique_global_tickers[:5], 1):
+            print(f"  {i}. {ticker}")
+
+        print(f"\n📉 Top 5 des 'Worst 100 performers' (scores les plus bas > 0) :")
+        for i, ticker in enumerate(worst_100_list[:5], 1):
             print(f"  {i}. {ticker}")
 
         return True
