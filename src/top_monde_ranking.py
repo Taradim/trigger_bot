@@ -125,15 +125,15 @@ def top_monde_ranking() -> bool:
     Analyze and enrich TOP MONDE CSV files with calculated columns.
 
     Processes all TOP MONDE CSV files in the waiting_room directory,
-    calculates derived columns, and saves enhanced versions to ready_to_use.
+    calculates derived columns, and saves enhanced versions to ticker_room.
 
     Returns:
         True if at least one file was processed successfully, False otherwise.
     """
     waiting_room_path = os.path.join("data", "waiting_room")
-    ready_to_use_path = os.path.join("data", "ready_to_use")
+    ticker_room_path = os.path.join("data", "ticker_room")
 
-    os.makedirs(ready_to_use_path, exist_ok=True)
+    os.makedirs(ticker_room_path, exist_ok=True)
 
     pattern = os.path.join(waiting_room_path, "TOP MONDE*.csv")
     csv_files = glob.glob(pattern)
@@ -150,7 +150,7 @@ def top_monde_ranking() -> bool:
     for input_file in csv_files:
         filename = os.path.basename(input_file)
         output_filename = filename.replace(".csv", "_enhanced.csv")
-        output_file = os.path.join(ready_to_use_path, output_filename)
+        output_file = os.path.join(ticker_room_path, output_filename)
 
         if os.path.exists(output_file):
             logger.info(f"Enhanced file already exists: {output_filename}. Skipping.")

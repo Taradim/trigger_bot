@@ -13,12 +13,14 @@ trigger_bot/
 ├── src/
 │   ├── top_monde_ranking.py      # TOP MONDE data enrichment
 │   ├── ticker_list.py             # TradingView list generation
+│   ├── cleanup_files.py           # File organization script
 │   ├── get_sp500_tickers_history.py  # S&P 500 historical data retrieval
 │   └── get_top_tickers.py         # TOP MONDE historical data retrieval
 ├── data/
-│   ├── waiting_room/               # Raw TOP MONDE files
-│   ├── ready_to_use/               # Enriched files
-│   ├── ticker_room/                # Files ready for list generation
+│   ├── waiting_room/               # Raw TOP MONDE files (input)
+│   ├── ticker_room/                # Enriched files (output from top_monde_ranking.py)
+│   ├── ready_to_use/               # Processed files (after ticker_list.py)
+│   ├── used_input_files/           # Archived input files
 │   └── history/                    # Historical data
 └── main.py
 ```
@@ -56,7 +58,7 @@ trigger_bot/
    - Round to 2 decimal places
    - Sort by `score` descending
 
-6. **Save**: Generates `*_enhanced.csv` files in `data/ready_to_use/`
+6. **Save**: Generates `*_enhanced.csv` files in `data/ticker_room/`
 
 **Usage**:
 ```bash
@@ -113,15 +115,34 @@ python src/ticker_list.py
 
 ---
 
+### 3. `cleanup_files.py` - File Organization
+
+**Purpose**: Organizes files between data directories to maintain a clean workflow.
+
+**How it works**:
+
+1. **waiting_room → used_input_files**: Moves all CSV files from `waiting_room` to `used_input_files`
+2. **ticker_room → ready_to_use**: Moves all CSV files from `ticker_room` to `ready_to_use`
+3. **ready_to_use (non-enhanced) → used_input_files**: Moves non-enhanced CSV files (without `_enhanced` in filename) from `ready_to_use` to `used_input_files`
+
+**Usage**:
+```bash
+python src/cleanup_files.py
+```
+
+**Logs**: Logs each file move operation at INFO level.
+
+---
+
 ## Secondary Scripts (Legacy)
 
-### 3. `get_sp500_tickers_history.py`
+### 4. `get_sp500_tickers_history.py`
 
 Retrieves monthly historical data for S&P 500 tickers over the last 13 months via yfinance. Calculates performance metrics (12m, 6m, 3m) and saves to `data/history/sp500_monthly_data.csv`. Checks if data is already up to date before downloading.
 
 *Abandoned because the data was not completely reliable and importing from TradingView screener (TOP MONDE files) was more appropriate.*
 
-### 4. `get_top_tickers.py`
+### 5. `get_top_tickers.py`
 
 Similar to `get_sp500_tickers_history.py` but uses tickers from the most recent TOP MONDE file instead of S&P 500. Saves to `data/history/top_monde_monthly_data.csv`.
 
@@ -130,10 +151,13 @@ Similar to `get_sp500_tickers_history.py` but uses tickers from the most recent 
 ## Recommended Workflow
 
 1. **Place raw TOP MONDE files** in `data/waiting_room/`
-2. **Run `top_monde_ranking.py`** to enrich the data
-3. **Move enriched files** to `data/ticker_room/`
-4. **Run `ticker_list.py`** to generate TradingView lists
-5. **Copy `.txt` file contents** into TradingView
+2. **Run `top_monde_ranking.py`** to enrich the data (outputs to `data/ticker_room/`)
+3. **Run `ticker_list.py`** to generate TradingView lists (reads from `data/ticker_room/`, outputs `.txt` files to `data/`)
+4. **Copy `.txt` file contents** into TradingView
+5. **Run `cleanup_files.py`** to organize processed files:
+   - Moves files from `waiting_room` to `used_input_files`
+   - Moves files from `ticker_room` to `ready_to_use`
+   - Moves non-enhanced files from `ready_to_use` to `used_input_files`
 
 ---
 
