@@ -1,36 +1,150 @@
 #!/usr/bin/env python3
 """
-Script top_monde_ranking pour analyser et enrichir les fichiers CSV TOP MONDE
+Script to analyze and enrich TOP MONDE CSV files with calculated columns.
 """
 
-import pandas as pd
+import glob
+import logging
 import os
+
 import numpy as np
+import pandas as pd
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+)
+logger = logging.getLogger(__name__)
 
 
-def top_monde_ranking():
-    """Analyser et enrichir les fichiers CSV TOP MONDE avec de nouvelles colonnes calculées"""
+def _calculate_performance_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Calculate performance columns (perf_sum, perf_norm, perfsum_2, perf_norm_2)."""
+    perf_columns = [
+        "Performance % 1 year",
+        "Performance % 6 months",
+        "Performance % 3 months",
+    ]
+    df["perf_sum"] = df[perf_columns].sum(axis=1)
+    df["perf_norm"] = 1 + df["perf_sum"] / 1000
 
-    # Chemin des dossiers
+    perf_columns_2 = [
+        "Performance % 1 month",
+        "Performance % 3 months",
+        "Performance % 6 months",
+    ]
+    df["perfsum_2"] = df[perf_columns_2].sum(axis=1)
+    df["perf_norm_2"] = 1 + df["perfsum_2"] / 1000
+
+    return df
+
+
+def _calculate_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    df["MRAT"] = (
+        df["Simple Moving Average (21) 1 day"] / df["Simple Moving Average (200) 1 day"]
+    )
+    df["Diff"] = df["Price"] / df["Simple Moving Average (200) 1 day"]
+    return df
+
+
+def _calculate_scores(df: pd.DataFrame) -> pd.DataFrame:
+    df["score"] = df["perf_norm"] + df["MRAT"]
+    df["score_2"] = df["perf_norm_2"] + df["MRAT"]
+    return df
+
+
+def _process_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Process DataFrame by calculating all derived columns, cleaning data, and sorting."""
+    df = _calculate_performance_columns(df)
+    df = _calculate_technical_indicators(df)
+    df = _calculate_scores(df)
+
+    calculated_columns = [
+        "perf_sum",
+        "perf_norm",
+        "perfsum_2",
+        "perf_norm_2",
+        "MRAT",
+        "Diff",
+        "score",
+        "score_2",
+    ]
+    df[calculated_columns] = df[calculated_columns].fillna(0)
+
+    numeric_columns = df.select_dtypes(include=[np.number]).columns
+    df[numeric_columns] = df[numeric_columns].round(2)
+
+    df = df.sort_values(by="score", ascending=False)
+    return df
+
+
+def _log_summary(df: pd.DataFrame, filename: str) -> None:
+    """Log summary statistics for processed file."""
+    logger.info(f"Summary for {filename}:")
+    logger.info(f"  - perf_sum - Average: {df['perf_sum'].mean():.2f}%")
+    logger.info(f"  - perfsum_2 - Average: {df['perfsum_2'].mean():.2f}%")
+    logger.info(f"  - MRAT - Average: {df['MRAT'].mean():.4f}")
+    logger.info(f"  - Diff - Average: {df['Diff'].mean():.4f}")
+    logger.info(f"  - score - Average: {df['score'].mean():.4f}")
+    logger.info(f"  - score_2 - Average: {df['score_2'].mean():.4f}")
+
+
+def _process_single_file(input_file: str, output_file: str) -> bool:
+    """
+    Process a single CSV file.
+
+    Args:
+        input_file: Path to input CSV file.
+        output_file: Path to output CSV file.
+
+    Returns:
+        True if processing succeeded, False otherwise.
+    """
+    filename = os.path.basename(input_file)
+
+    try:
+        logger.info(f"Processing file: {filename}")
+        df = pd.read_csv(input_file)
+        logger.info(f"Data loaded: {df.shape[0]} rows × {df.shape[1]} columns")
+
+        df = _process_dataframe(df)
+
+        df.to_csv(output_file, index=False)
+        logger.info(f"File saved: {os.path.basename(output_file)}")
+
+        _log_summary(df, filename)
+        return True
+
+    except Exception as e:
+        logger.error(f"Error processing {filename}: {e}", exc_info=True)
+        return False
+
+
+def top_monde_ranking() -> bool:
+    """
+    Analyze and enrich TOP MONDE CSV files with calculated columns.
+
+    Processes all TOP MONDE CSV files in the waiting_room directory,
+    calculates derived columns, and saves enhanced versions to ready_to_use.
+
+    Returns:
+        True if at least one file was processed successfully, False otherwise.
+    """
     waiting_room_path = os.path.join("data", "waiting_room")
     ready_to_use_path = os.path.join("data", "ready_to_use")
 
-    # Créer le dossier ready_to_use s'il n'existe pas
     os.makedirs(ready_to_use_path, exist_ok=True)
-
-    # Chercher tous les fichiers TOP MONDE dans waiting_room
-    import glob
 
     pattern = os.path.join(waiting_room_path, "TOP MONDE*.csv")
     csv_files = glob.glob(pattern)
 
     if not csv_files:
-        print("❌ Aucun fichier CSV 'TOP MONDE' trouvé dans waiting_room")
+        logger.warning("No TOP MONDE CSV files found in waiting_room")
         return False
 
-    print(f"📁 {len(csv_files)} fichier(s) TOP MONDE trouvé(s) :")
+    logger.info(f"Found {len(csv_files)} TOP MONDE file(s):")
     for file in csv_files:
-        print(f"  - {os.path.basename(file)}")
+        logger.info(f"  - {os.path.basename(file)}")
 
     processed_count = 0
     for input_file in csv_files:
@@ -38,94 +152,25 @@ def top_monde_ranking():
         output_filename = filename.replace(".csv", "_enhanced.csv")
         output_file = os.path.join(ready_to_use_path, output_filename)
 
-        # Vérifier si le fichier enhanced existe déjà
         if os.path.exists(output_file):
-            print(f"\n⚠️  Le fichier enhanced existe déjà : {output_filename}")
-            print("🔄 Aucune action nécessaire - le fichier est déjà traité.")
+            logger.info(f"Enhanced file already exists: {output_filename}. Skipping.")
             processed_count += 1
             continue
 
-        print(f"\n📂 Traitement du fichier : {filename}")
-
-        try:
-            # Lire le fichier CSV
-            df = pd.read_csv(input_file)
-            print(
-                f"📊 Données chargées : {df.shape[0]} lignes × {df.shape[1]} colonnes"
-            )
-
-            # Créer les nouvelles colonnes
-
-            # 1. perf_sum : somme des performances 1 an + 6 mois + 3 mois
-            perf_columns = [
-                "Performance % 1 year",
-                "Performance % 6 months",
-                "Performance % 3 months",
-            ]
-            df["perf_sum"] = df[perf_columns].sum(axis=1)
-            print("✅ Colonne 'perf_sum' créée")
-
-            # 1bis. perf_norm : 1 + perf_sum/1000
-            df["perf_norm"] = 1 + df["perf_sum"] / 1000
-            print("✅ Colonne 'perf_norm' créée")
-
-            # 2. MRAT : moyenne mobile 21 / moyenne mobile 200
-            df["MRAT"] = (
-                df["Simple Moving Average (21) 1 day"]
-                / df["Simple Moving Average (200) 1 day"]
-            )
-            print("✅ Colonne 'MRAT' créée")
-
-            # 3. Diff : prix / moyenne mobile 200
-            df["Diff"] = df["Price"] / df["Simple Moving Average (200) 1 day"]
-            print("✅ Colonne 'Diff' créée")
-
-            # 4. score : somme de perf_norm et MRAT
-            df["score"] = df["perf_norm"] + df["MRAT"]
-            print("✅ Colonne 'score' créée")
-
-            # Remplir les valeurs nulles des colonnes calculées par 0
-            calculated_columns = ["perf_sum", "perf_norm", "MRAT", "Diff", "score"]
-            df[calculated_columns] = df[calculated_columns].fillna(0)
-            print("✅ Valeurs nulles des colonnes calculées remplacées par 0")
-
-            # Arrondir toutes les valeurs numériques du DataFrame
-            numeric_columns = df.select_dtypes(include=[np.number]).columns
-            df[numeric_columns] = df[numeric_columns].round(2)
-            print("✅ Toutes les valeurs numériques arrondies à 2 décimales")
-
-            # Trier le DataFrame par score décroissant
-            df = df.sort_values(by="score", ascending=False)
-            print("✅ Données triées par score décroissant")
-
-            # Sauvegarder le fichier avec les nouvelles colonnes
-            df.to_csv(output_file, index=False)
-            print(f"💾 Fichier sauvegardé : {output_filename}")
-
-            # Afficher un résumé pour ce fichier
-            print(f"📈 Résumé pour {filename}:")
-            print(f"  - perf_sum - Moyenne: {df['perf_sum'].mean():.2f}%")
-            print(f"  - MRAT - Moyenne: {df['MRAT'].mean():.4f}")
-            print(f"  - Diff - Moyenne: {df['Diff'].mean():.4f}")
-            print(f"  - score - Moyenne: {df['score'].mean():.4f}")
-
+        if _process_single_file(input_file, output_file):
             processed_count += 1
 
-        except Exception as e:
-            print(f"❌ Erreur lors du traitement de {filename}: {e}")
-            continue
+    logger.info(
+        f"Processing completed: {processed_count} file(s) processed out of {len(csv_files)} found"
+    )
 
-    # Résumé final
-    print(f"\n🎉 TRAITEMENT TERMINÉ !")
-    print(f"📊 {processed_count} fichier(s) traité(s) sur {len(csv_files)} trouvé(s)")
-
-    return True
+    return processed_count > 0
 
 
 if __name__ == "__main__":
-    print("🚀 Démarrage de top_monde_ranking...")
+    logger.info("Starting top_monde_ranking...")
     success = top_monde_ranking()
     if success:
-        print("\n✅ Analyse TOP MONDE terminée avec succès !")
+        logger.info("TOP MONDE analysis completed successfully")
     else:
-        print("\n❌ Échec de l'analyse.")
+        logger.error("TOP MONDE analysis failed")
