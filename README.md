@@ -6,6 +6,16 @@ Analysis pipeline and ticker list generator for TradingView from TOP MONDE data.
 
 This project processes market data (TOP MONDE) to calculate performance scores, enrich data with technical indicators, and generate optimized ticker lists for TradingView.
 
+## TOP MONDE Files
+
+TOP MONDE files are filtered lists of stocks with a market capitalization above 1 billion USD on all major US and EU-based exchanges. These files are extracted as CSV from the TradingView screener and contain all required fields:
+
+- **Performance metrics**: 12 months, 6 months, 3 months, 1 month
+- **Technical indicators**: 21-day Simple Moving Average, 200-day Simple Moving Average
+- **Additional data**: Symbol, Exchange, Market capitalization, Price, and other relevant fields
+
+These CSV files serve as the input data for the enrichment pipeline.
+
 ## Project Structure
 
 ```
@@ -36,9 +46,9 @@ trigger_bot/
 1. **File reading**: Reads all `TOP MONDE*.csv` files from `data/waiting_room/`
 
 2. **Performance columns calculation**:
-   - `perf_sum`: Sum of performances over 1 year, 6 months, and 3 months
+   - `perf_sum`: Sum of performances over 12 months, 6 months, and 3 months
    - `perf_norm`: Normalization of `perf_sum` (1 + perf_sum/1000)
-   - `perfsum_2`: Sum of performances over 1 month, 3 months, and 6 months
+   - `perfsum_2`: Sum of performances over 6 months, 3 months, and 1 month
    - `perf_norm_2`: Normalization of `perfsum_2`
    
    *Based on: [stock_backtest_engine](https://github.com/Taradim/stock_backtest_engine)*
