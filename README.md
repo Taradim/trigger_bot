@@ -22,17 +22,16 @@ These CSV files serve as the input data for the enrichment pipeline.
 trigger_bot/
 ├── src/
 │   ├── top_monde_ranking.py      # TOP MONDE data enrichment
-│   ├── ticker_list.py             # TradingView list generation
-│   ├── cleanup_files.py           # File organization script
-│   ├── get_sp500_tickers_history.py  # S&P 500 historical data retrieval
-│   └── get_top_tickers.py         # TOP MONDE historical data retrieval
+│   ├── ticker_list.py            # TradingView list generation
+│   ├── cleanup_files.py          # File organization script
+│   └── legacy/                   # Abandoned scripts (kept for reference)
+├── tests/                        # Unit tests (pytest)
 ├── data/
-│   ├── waiting_room/               # Raw TOP MONDE files (input)
-│   ├── ticker_room/                # Enriched files (output from top_monde_ranking.py)
-│   ├── ready_to_use/               # Processed files (after ticker_list.py)
-│   ├── used_input_files/           # Archived input files
-│   └── history/                    # Historical data
-└── main.py
+│   ├── waiting_room/             # Raw TOP MONDE files (input)
+│   ├── ticker_room/              # Enriched files (output)
+│   ├── ready_to_use/             # Processed files
+│   └── used_input_files/         # Archived input files
+└── pyproject.toml
 ```
 
 ## Main Scripts
@@ -144,15 +143,17 @@ python src/cleanup_files.py
 
 ---
 
-## Secondary Scripts (Legacy)
+## Legacy Scripts (`src/legacy/`)
 
-### 4. `get_sp500_tickers_history.py`
+These scripts are no longer actively used but are kept for reference.
+
+### `get_sp500_tickers_history.py`
 
 Retrieves monthly historical data for S&P 500 tickers over the last 13 months via yfinance. Calculates performance metrics (12m, 6m, 3m) and saves to `data/history/sp500_monthly_data.csv`. Checks if data is already up to date before downloading.
 
 *Abandoned because the data was not completely reliable and importing from TradingView screener (TOP MONDE files) was more appropriate.*
 
-### 5. `get_top_tickers.py`
+### `get_top_tickers.py`
 
 Similar to `get_sp500_tickers_history.py` but uses tickers from the most recent TOP MONDE file instead of S&P 500. Saves to `data/history/top_monde_monthly_data.csv`.
 
@@ -176,6 +177,21 @@ Similar to `get_sp500_tickers_history.py` but uses tickers from the most recent 
 - `pandas`: Data manipulation
 - `numpy`: Numerical computations
 - `yfinance`: Market data retrieval (secondary scripts)
+
+---
+
+## Tests
+
+Run tests with pytest:
+
+```bash
+pytest tests/ -v
+```
+
+Tests cover:
+- Score and performance calculations
+- Input validation (required columns)
+- Ticker list formatting and deduplication
 
 ---
 

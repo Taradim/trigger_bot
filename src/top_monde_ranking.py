@@ -6,16 +6,45 @@ Script to analyze and enrich TOP MONDE CSV files with calculated columns.
 import glob
 import logging
 import os
+from typing import List
 
 import numpy as np
 import pandas as pd
 
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
+
+REQUIRED_COLUMNS: List[str] = [
+    "Symbol",
+    "Exchange",
+    "Price",
+    "Market capitalization",
+    "Performance % 1 year",
+    "Performance % 6 months",
+    "Performance % 3 months",
+    "Performance % 1 month",
+    "Simple Moving Average (21) 1 day",
+    "Simple Moving Average (200) 1 day",
+]
+
+
+def validate_input_dataframe(df: pd.DataFrame) -> List[str]:
+    """
+    Validate that required columns are present in input DataFrame.
+
+    Args:
+        df: Input DataFrame to validate.
+
+    Returns:
+        List of missing column names. Empty list means all columns present.
+    """
+    missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
+    if missing_cols:
+        logger.warning(f"Missing required columns: {missing_cols}")
+    return missing_cols
 
 
 def _calculate_performance_columns(df: pd.DataFrame) -> pd.DataFrame:
@@ -105,7 +134,14 @@ def _process_single_file(input_file: str, output_file: str) -> bool:
     try:
         logger.info(f"Processing file: {filename}")
         df = pd.read_csv(input_file)
-        logger.info(f"Data loaded: {df.shape[0]} rows × {df.shape[1]} columns")
+        logger.info(f"Data loaded: {df.shape[0]} rows x {df.shape[1]} columns")
+
+        # Validate required columns are present
+        missing_columns = validate_input_dataframe(df)
+        if missing_columns:
+            logger.warning(
+                f"Data quality issue in {filename}: {len(missing_columns)} missing column(s)"
+            )
 
         df = _process_dataframe(df)
 
